@@ -216,6 +216,19 @@
             color: white;
         }
 
+        .protocol-ws {
+            background: #8b5cf6;
+            color: white;
+        }
+
+        .link-card.ws-card {
+            cursor: pointer;
+        }
+
+        .link-card.ws-card:hover {
+            cursor: pointer;
+        }
+
         footer {
             text-align: center;
             margin-top: 40px;
@@ -313,6 +326,13 @@
                 icon: '🏠',
                 url: 'http://192.168.2.139:8123/',
                 protocol: 'http'
+            },
+            {
+                name: 'Matter Server',
+                icon: '🔌',
+                url: 'ws://192.168.2.139:5580/ws',
+                protocol: 'ws',
+                isWebSocket: true
             }
         ];
 
@@ -327,31 +347,94 @@
         ];
 
         // Funktion zum Erstellen einer Link-Karte
-        function createLinkCard(link) {
-            const protocolClass = link.protocol === 'https' ? 'protocol-https' : 'protocol-http';
+        function createLinkCard(link, piIP = null) {
+            let displayUrl = link.url;
+            
+            // Für WebSocket-URLs die IP dynamisch ersetzen
+            if (link.isWebSocket && piIP && piIP !== 'Nicht verfügbar') {
+                displayUrl = link.url.replace('192.168.2.139', piIP);
+            }
+            
+            const protocolClass = link.protocol === 'https' ? 'protocol-https' : 
+                                 link.protocol === 'ws' ? 'protocol-ws' : 'protocol-http';
             const protocolText = link.protocol.toUpperCase();
             
+            // WebSocket-Karten kopieren die URL beim Klick
+            if (link.isWebSocket) {
+                return `
+                    <div class="link-card ws-card" onclick="copyToClipboard('${displayUrl}', event)">
+                        <div class="link-header">
+                            <div class="link-icon">${link.icon}</div>
+                            <div class="link-name">${link.name}</div>
+                        </div>
+                        <div class="link-url">
+                            ${displayUrl}
+                            <span class="protocol-badge ${protocolClass}">${protocolText}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
             return `
-                <a href="${link.url}" target="_blank" class="link-card">
+                <a href="${displayUrl}" target="_blank" class="link-card">
                     <div class="link-header">
                         <div class="link-icon">${link.icon}</div>
                         <div class="link-name">${link.name}</div>
                     </div>
                     <div class="link-url">
-                        ${link.url}
+                        ${displayUrl}
                         <span class="protocol-badge ${protocolClass}">${protocolText}</span>
                     </div>
                 </a>
             `;
         }
 
+        // Funktion zum Kopieren in die Zwischenablage
+        function copyToClipboard(text, event) {
+            const card = event ? event.currentTarget : null;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                // Visuelles Feedback - kurze Bestätigung
+                if (card) {
+                    const originalBg = card.style.background;
+                    card.style.background = '#10b981';
+                    card.style.transition = 'background 0.3s ease';
+                    setTimeout(() => {
+                        card.style.background = originalBg || '';
+                    }, 500);
+                }
+            }).catch(err => {
+                console.error('Fehler beim Kopieren:', err);
+                // Fallback für ältere Browser
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    if (card) {
+                        const originalBg = card.style.background;
+                        card.style.background = '#10b981';
+                        setTimeout(() => {
+                            card.style.background = originalBg || '';
+                        }, 500);
+                    }
+                } catch (e) {
+                    alert('Fehler beim Kopieren. Bitte manuell kopieren: ' + text);
+                }
+                document.body.removeChild(textArea);
+            });
+        }
+
         // Links rendern
-        function renderLinks() {
+        function renderLinks(piIP = null) {
             const servicesGrid = document.getElementById('services-grid');
             const otherLinksGrid = document.getElementById('other-links-grid');
 
-            servicesGrid.innerHTML = services.map(createLinkCard).join('');
-            otherLinksGrid.innerHTML = otherLinks.map(createLinkCard).join('');
+            servicesGrid.innerHTML = services.map(link => createLinkCard(link, piIP)).join('');
+            otherLinksGrid.innerHTML = otherLinks.map(link => createLinkCard(link, piIP)).join('');
         }
 
         // IP-Adresse vom Server abrufen
@@ -364,9 +447,16 @@
                 const piIP = data.server_ip || data.docker_host_ip || data.container_ip || 'Nicht verfügbar';
                 
                 document.getElementById('pi-ip').textContent = piIP;
+                
+                // Links neu rendern mit der geladenen IP für WebSocket-URLs
+                renderLinks(piIP);
+                
+                return piIP;
             } catch (error) {
                 console.error('Fehler beim Laden der IP:', error);
                 document.getElementById('pi-ip').textContent = 'Nicht verfügbar';
+                renderLinks('Nicht verfügbar');
+                return null;
             }
         }
 
@@ -384,9 +474,9 @@
         }
 
         // Initialisierung
-        document.addEventListener('DOMContentLoaded', () => {
-            renderLinks();
-            loadPiIP();
+        document.addEventListener('DOMContentLoaded', async () => {
+            renderLinks(); // Erstmal mit Standard-IP rendern
+            await loadPiIP(); // Dann IP laden und Links neu rendern
             updateDate();
         });
     </script>
