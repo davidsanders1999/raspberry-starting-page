@@ -2,12 +2,43 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
-$container_ip = $_SERVER['SERVER_ADDR'] ?? gethostbyname(gethostname());
+// Versuche die interne IP-Adresse des Raspberry Pi zu ermitteln
+$pi_ip = null;
 
-$docker_host_ip = null;
-$docker_gateway = null;
+// Methode 1: Über SERVER_ADDR (wenn verfügbar)
+if (!empty($_SERVER['SERVER_ADDR']) && filter_var($_SERVER['SERVER_ADDR'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+    $pi_ip = $_SERVER['SERVER_ADDR'];
+}
 
-if (file_exists('/proc/net/route')) {
+// Methode 2: Über Hostname
+if (!$pi_ip) {
+    $hostname = gethostname();
+    $ip = gethostbyname($hostname);
+    if ($ip !== $hostname && filter_var($ip, FILTER_VALIDATE_IP)) {
+        $pi_ip = $ip;
+    }
+}
+
+// Methode 3: Über Netzwerk-Interfaces (Linux)
+if (!$pi_ip && function_exists('shell_exec')) {
+    // Versuche eth0 oder wlan0 Interface
+    $commands = [
+        "hostname -I | awk '{print $1}'",
+        "ip route get 8.8.8.8 | awk '{print $7}' | head -1",
+        "ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | head -1"
+    ];
+    
+    foreach ($commands as $cmd) {
+        $result = trim(shell_exec($cmd . ' 2>/dev/null'));
+        if ($result && filter_var($result, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+            $pi_ip = $result;
+            break;
+        }
+    }
+}
+
+// Methode 4: Docker Gateway (falls in Container)
+if (!$pi_ip && file_exists('/proc/net/route')) {
     $routes = file('/proc/net/route');
     foreach ($routes as $route) {
         $parts = preg_split('/\s+/', trim($route));
@@ -15,32 +46,25 @@ if (file_exists('/proc/net/route')) {
             $gateway_hex = $parts[2];
             $gateway_parts = str_split($gateway_hex, 2);
             $gateway_parts = array_reverse($gateway_parts);
-            $docker_gateway = hexdec($gateway_parts[0]) . '.' . 
-                            hexdec($gateway_parts[1]) . '.' . 
-                            hexdec($gateway_parts[2]) . '.' . 
-                            hexdec($gateway_parts[3]);
-            $docker_host_ip = $docker_gateway;
-            break;
+            $gateway = hexdec($gateway_parts[0]) . '.' . 
+                       hexdec($gateway_parts[1]) . '.' . 
+                       hexdec($gateway_parts[2]) . '.' . 
+                       hexdec($gateway_parts[3]);
+            if (filter_var($gateway, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                $pi_ip = $gateway;
+                break;
+            }
         }
     }
 }
 
-if (! $docker_host_ip && ! empty($_SERVER['DOCKER_HOST_IP'])) {
-    $docker_host_ip = $_SERVER['DOCKER_HOST_IP'];
-}
-
-if (!$docker_host_ip) {
-    $container_parts = explode('. ', $container_ip);
-    if (count($container_parts) === 4 && $container_parts[0] === '172') {
-        $docker_host_ip = $container_parts[0] . '.' . 
-                         $container_parts[1] .  '.' . 
-                         $container_parts[2] . '. 1';
-        $docker_gateway = $docker_host_ip;
-    }
+// Fallback
+if (!$pi_ip) {
+    $pi_ip = $_SERVER['SERVER_ADDR'] ?? 'Nicht verfügbar';
 }
 
 $client_ip = '';
-if (! empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
     $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
     $client_ip = trim($ips[0]);
 } elseif (!empty($_SERVER['HTTP_X_REAL_IP'])) {
@@ -51,25 +75,14 @@ if (! empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
     $client_ip = 'Nicht verfügbar';
 }
 
-$hostname = gethostname();
-
-$system_info = [
+$response = [
     'status' => 'success',
-    'php_version' => phpversion(),
-    'container_ip' => $container_ip,
-    'container_hostname' => $hostname,
-    'docker_host_ip' => $docker_host_ip,
-    'docker_gateway' => $docker_gateway,
+    'server_ip' => $pi_ip,
     'client_ip' => $client_ip,
-    'server_ip' => $docker_host_ip ??  $container_ip,
-    'server_name' => $_SERVER['SERVER_NAME'] ?? $hostname,
-    'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'Nicht verfügbar',
-    'server_protocol' => $_SERVER['SERVER_PROTOCOL'] ?? 'HTTP/1.1',
-    'request_method' => $_SERVER['REQUEST_METHOD'] ?? 'GET',
-    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'Nicht verfügbar',
-    'timestamp' => date('Y-m-d H:i:s'),
-    'timezone' => date_default_timezone_get()
+    'php_version' => phpversion(),
+    'hostname' => gethostname(),
+    'timestamp' => date('Y-m-d H:i:s')
 ];
 
-echo json_encode($system_info, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 ?>
