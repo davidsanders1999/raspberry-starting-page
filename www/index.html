@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raspberry Pi 4 - System Info Dashboard</title>
+    <style>
+        * {
+            margin:  0;
+            padding: 0;
+            box-sizing:  border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background:  linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 900px;
+            width: 100%;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size:  2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size:  1.1em;
+        }
+
+        .info-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            color: white;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .info-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .info-card h2 {
+            font-size: 1.3em;
+            margin-bottom:  15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .info-card .icon {
+            margin-right: 10px;
+            font-size:  1.5em;
+        }
+
+        .info-value {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 12px 20px;
+            border-radius:  8px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            word-break: break-all;
+            backdrop-filter: blur(5px);
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            text-align:  center;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .status-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-card h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .status-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .status-text {
+            color: #28a745;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .loading {
+            color: #ffc107;
+            animation: pulse 1.5s infinite;
+        }
+
+        .error {
+            color: #dc3545;
+        }
+
+        .portainer-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .portainer-button {
+            display: block;
+            background: linear-gradient(135deg, #13bef9 0%, #0a7ea3 100%);
+            color:  white;
+            text-decoration: none;
+            padding: 20px 30px;
+            border-radius:  12px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight:  bold;
+            box-shadow: 0 5px 15px rgba(19, 190, 249, 0.3);
+            transition: all 0.3s ease;
+            margin:  0 auto;
+            max-width: 400px;
+        }
+
+        .portainer-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(19, 190, 249, 0.4);
+            background: linear-gradient(135deg, #0a7ea3 0%, #13bef9 100%);
+        }
+
+        .portainer-button .icon {
+            font-size: 1.5em;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        .portainer-description {
+            text-align: center;
+            color: #666;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top:  20px;
+            border-top:  1px solid #ddd;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform:  translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .info-card, .status-card {
+            animation: slideIn 0.5s ease-out;
+        }
+
+        .info-card:nth-child(1) { animation-delay: 0.1s; }
+        .info-card:nth-child(2) { animation-delay: 0.2s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍓 Raspberry Pi 4</h1>
+        <p class="subtitle">System Information Dashboard</p>
+
+        <div class="info-card">
+            <h2>
+                <span class="icon">💻</span> 
+                Ihre Client IP-Adresse
+            </h2>
+            <div class="info-value" id="client-ip">Wird geladen...</div>
+        </div>
+
+        <div class="info-card">
+            <h2>
+                <span class="icon">🌍</span> 
+                Externe IP-Adresse (WAN)
+            </h2>
+            <div class="info-value" id="external-ip">Wird geladen...</div>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-card">
+                <div class="status-icon">🐘</div>
+                <h3>PHP Status</h3>
+                <div class="status-text" id="php-status">
+                    <span class="loading">Prüfe... </span>
+                </div>
+                <div id="php-version" style="font-size: 0.8em; color: #666; margin-top: 5px;"></div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-icon">⚡</div>
+                <h3>JavaScript Status</h3>
+                <div class="status-text" id="js-status">
+                    <span class="loading">Prüfe...</span>
+                </div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-icon">🐳</div>
+                <h3>Docker Status</h3>
+                <div class="status-text">✅ Aktiv</div>
+            </div>
+        </div>
+
+        <div class="portainer-section">
+            <a href="https://192.168.2.139:9443" id="portainer-link" class="portainer-button" target="_blank">
+                <span class="icon">🎛️</span>
+                Portainer öffnen
+            </a>
+            <p class="portainer-description">
+                Container-Management Interface (Port 9443)
+            </p>
+        </div>
+
+        <footer>
+            <p><strong>Erstellt für davidsanders</strong></p>
+            <p>Raspberry Pi 4 - Docker Setup</p>
+            <p>Datum: <span id="current-date"></span></p>
+        </footer>
+    </div>
+
+    <script>
+        const PORTAINER_IP = '192.168.2.139';
+        const PORTAINER_PORT = '9443';
+        
+        document.getElementById('js-status').innerHTML = '✅ Funktioniert';
+        
+        document.getElementById('current-date').textContent = new Date().toLocaleString('de-DE', {
+            year: 'numeric',
+            month: '2-digit',
+            day:  '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        fetch('info.php')
+            .then(response => {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('php-status').innerHTML = '✅ Funktioniert';
+                document.getElementById('php-version').textContent = 'Version: ' + data.php_version;
+                document.getElementById('client-ip').textContent = data.client_ip;
+                console.log('✅ PHP Daten erfolgreich geladen:', data);
+            })
+            .catch(error => {
+                document.getElementById('php-status').innerHTML = '<span class="error">❌ Fehler</span>';
+                document.getElementById('php-version').textContent = error.message;
+                console.error('❌ PHP Fehler:', error);
+                document.getElementById('client-ip').textContent = 'Nicht verfügbar';
+            });
+
+        fetch('https://api.ipify.org?format=json')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('external-ip').textContent = data.ip;
+                console.log('✅ Externe IP geladen:', data.ip);
+            })
+            .catch(error => {
+                document.getElementById('external-ip').textContent = 'Nicht verfügbar';
+                console.error('❌ Externe IP Fehler:', error);
+            });
+    </script>
+</body>
+</html>
