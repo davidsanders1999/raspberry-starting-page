@@ -291,11 +291,11 @@
 
             h1 {
                 font-size: 2em;
-            }
+        }
 
             .ip-value {
                 font-size: 1.4em;
-            }
+        }
 
             .links-grid {
                 grid-template-columns: 1fr;
@@ -316,7 +316,7 @@
                 <span>Interne IPv4-Adresse des Raspberry Pi</span>
             </div>
             <div class="ip-value" id="pi-ip">Wird geladen...</div>
-        </div>
+            </div>
 
         <h2 class="section-title">
             <span>🔗</span>
@@ -343,6 +343,9 @@
     </div>
 
     <script>
+        // IP-Adresse des Raspberry Pi Hosts (direkt gesetzt)
+        const PI_HOST_IP = '192.168.2.139';
+
         // Konfiguration der Dienste - einfach erweiterbar!
         const services = [
             {
@@ -519,27 +522,9 @@
             otherLinksGrid.innerHTML = otherLinks.map(link => createLinkCard(link, piIP)).join('');
         }
 
-        // IP-Adresse vom Server abrufen
-        async function loadPiIP() {
-            try {
-                const response = await fetch('info.php');
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                
-                const data = await response.json();
-                const piIP = data.server_ip || data.docker_host_ip || data.container_ip || 'Nicht verfügbar';
-                
-                document.getElementById('pi-ip').textContent = piIP;
-                
-                // Links neu rendern mit der geladenen IP für WebSocket-URLs
-                renderLinks(piIP);
-                
-                return piIP;
-            } catch (error) {
-                console.error('Fehler beim Laden der IP:', error);
-                document.getElementById('pi-ip').textContent = 'Nicht verfügbar';
-                renderLinks('Nicht verfügbar');
-                return null;
-            }
+        // IP-Adresse anzeigen
+        function displayPiIP() {
+            document.getElementById('pi-ip').textContent = PI_HOST_IP;
         }
 
         // Datum anzeigen
@@ -556,9 +541,9 @@
         }
 
         // Initialisierung
-        document.addEventListener('DOMContentLoaded', async () => {
-            renderLinks(); // Erstmal mit Standard-IP rendern
-            await loadPiIP(); // Dann IP laden und Links neu rendern
+        document.addEventListener('DOMContentLoaded', () => {
+            displayPiIP();
+            renderLinks(PI_HOST_IP);
             updateDate();
         });
     </script>
