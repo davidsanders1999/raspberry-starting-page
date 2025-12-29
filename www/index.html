@@ -120,7 +120,7 @@
 
         .links-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -194,7 +194,38 @@
             padding: 8px 12px;
             border-radius: 6px;
             word-break: break-all;
-            margin-top: 8px;
+            display: block;
+            text-decoration: none;
+            transition: background 0.2s ease;
+        }
+
+        .link-url:hover {
+            background: #e5e7eb;
+        }
+
+        .link-url.ws-url {
+            cursor: default;
+        }
+
+        .url-section {
+            margin-top: 12px;
+        }
+
+        .url-label {
+            font-size: 0.75em;
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .url-item {
+            margin-bottom: 10px;
+        }
+
+        .url-item:last-child {
+            margin-bottom: 0;
         }
 
         .protocol-badge {
@@ -218,6 +249,11 @@
 
         .protocol-ws {
             background: #8b5cf6;
+            color: white;
+        }
+
+        .protocol-udp {
+            background: #6b7280;
             color: white;
         }
 
@@ -312,27 +348,69 @@
             {
                 name: 'Portainer',
                 icon: '🎛️',
-                url: 'https://192.168.2.139:9443/',
-                protocol: 'https'
+                urls: [
+                    {
+                        label: 'HTTPS Port',
+                        url: 'https://192.168.2.139:9443/',
+                        protocol: 'https'
+                    }
+                ]
             },
             {
                 name: 'N8n',
                 icon: '⚙️',
-                url: 'http://192.168.2.139:5678/',
-                protocol: 'http'
+                urls: [
+                    {
+                        label: 'HTTP Port',
+                        url: 'http://192.168.2.139:5678/',
+                        protocol: 'http'
+                    }
+                ]
             },
             {
                 name: 'Home Assistant',
                 icon: '🏠',
-                url: 'http://192.168.2.139:8123/',
-                protocol: 'http'
+                urls: [
+                    {
+                        label: 'HTTP Port',
+                        url: 'http://192.168.2.139:8123/',
+                        protocol: 'http'
+                    }
+                ]
             },
             {
                 name: 'Matter Server',
                 icon: '🔌',
-                url: 'ws://192.168.2.139:5580/ws',
-                protocol: 'ws',
-                isWebSocket: true
+                urls: [
+                    {
+                        label: 'WebSocket Port',
+                        url: 'ws://192.168.2.139:5580/ws',
+                        protocol: 'ws',
+                        isWebSocket: true
+                    }
+                ]
+            },
+            {
+                name: 'Pi-hole',
+                icon: '🕳️',
+                urls: [
+                    {
+                        label: 'HTTP Port',
+                        url: 'http://192.168.2.139:8080/admin',
+                        protocol: 'http'
+                    },
+                    {
+                        label: 'HTTPS Port',
+                        url: 'https://192.168.2.139:443/admin',
+                        protocol: 'https'
+                    },
+                    {
+                        label: 'DHCP Server Port',
+                        url: 'udp://192.168.2.139:67',
+                        protocol: 'udp',
+                        isUDP: true
+                    }
+                ]
             }
         ];
 
@@ -341,92 +419,96 @@
             {
                 name: 'Router',
                 icon: '📡',
-                url: 'http://192.168.2.1/',
-                protocol: 'http'
+                urls: [
+                    {
+                        label: 'HTTP Port',
+                        url: 'http://192.168.2.1/',
+                        protocol: 'http'
+                    }
+                ]
             }
         ];
 
         // Funktion zum Erstellen einer Link-Karte
         function createLinkCard(link, piIP = null) {
-            let displayUrl = link.url;
+            // URLs verarbeiten
+            const processedUrls = link.urls.map(urlConfig => {
+                let displayUrl = urlConfig.url;
+                
+                // Für URLs mit der Pi-IP die IP dynamisch ersetzen
+                if (piIP && piIP !== 'Nicht verfügbar' && urlConfig.url.includes('192.168.2.139')) {
+                    displayUrl = urlConfig.url.replace('192.168.2.139', piIP);
+                }
+                
+                const protocolClass = urlConfig.protocol === 'https' ? 'protocol-https' : 
+                                   urlConfig.protocol === 'ws' ? 'protocol-ws' : 
+                                   urlConfig.protocol === 'udp' ? 'protocol-udp' : 'protocol-http';
+                const protocolText = urlConfig.protocol.toUpperCase();
+                
+                return {
+                    ...urlConfig,
+                    displayUrl,
+                    protocolClass,
+                    protocolText
+                };
+            });
             
-            // Für WebSocket-URLs die IP dynamisch ersetzen
-            if (link.isWebSocket && piIP && piIP !== 'Nicht verfügbar') {
-                displayUrl = link.url.replace('192.168.2.139', piIP);
-            }
+            // Prüfen ob alle URLs WebSocket sind
+            const allWebSocket = processedUrls.every(u => u.isWebSocket);
             
-            const protocolClass = link.protocol === 'https' ? 'protocol-https' : 
-                                 link.protocol === 'ws' ? 'protocol-ws' : 'protocol-http';
-            const protocolText = link.protocol.toUpperCase();
+            // URL-Bereich rendern
+            const urlSections = processedUrls.map(url => {
+                if (url.isWebSocket || url.isUDP) {
+                    const labelHtml = url.isUDP ? `<div class="url-label">${url.label}</div>` : '';
+                    return `
+                        <div class="url-item">
+                            ${labelHtml}
+                            <div class="link-url ws-url">
+                                ${url.displayUrl}
+                                <span class="protocol-badge ${url.protocolClass}">${url.protocolText}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="url-item">
+                            <a href="${url.displayUrl}" target="_blank" class="link-url" onclick="event.stopPropagation()">
+                                ${url.displayUrl}
+                                <span class="protocol-badge ${url.protocolClass}">${url.protocolText}</span>
+                            </a>
+                        </div>
+                    `;
+                }
+            }).join('');
             
-            // WebSocket-Karten kopieren die URL beim Klick
-            if (link.isWebSocket) {
+            // Karte rendern
+            if (allWebSocket) {
                 return `
-                    <div class="link-card ws-card" onclick="copyToClipboard('${displayUrl}', event)">
+                    <div class="link-card ws-card">
                         <div class="link-header">
                             <div class="link-icon">${link.icon}</div>
                             <div class="link-name">${link.name}</div>
                         </div>
-                        <div class="link-url">
-                            ${displayUrl}
-                            <span class="protocol-badge ${protocolClass}">${protocolText}</span>
+                        <div class="url-section">
+                            ${urlSections}
                         </div>
                     </div>
                 `;
             }
             
             return `
-                <a href="${displayUrl}" target="_blank" class="link-card">
+                <div class="link-card">
                     <div class="link-header">
                         <div class="link-icon">${link.icon}</div>
                         <div class="link-name">${link.name}</div>
                     </div>
-                    <div class="link-url">
-                        ${displayUrl}
-                        <span class="protocol-badge ${protocolClass}">${protocolText}</span>
+                    <div class="url-section">
+                        ${urlSections}
                     </div>
-                </a>
+                </div>
             `;
         }
 
-        // Funktion zum Kopieren in die Zwischenablage
-        function copyToClipboard(text, event) {
-            const card = event ? event.currentTarget : null;
-            
-            navigator.clipboard.writeText(text).then(() => {
-                // Visuelles Feedback - kurze Bestätigung
-                if (card) {
-                    const originalBg = card.style.background;
-                    card.style.background = '#10b981';
-                    card.style.transition = 'background 0.3s ease';
-                    setTimeout(() => {
-                        card.style.background = originalBg || '';
-                    }, 500);
-                }
-            }).catch(err => {
-                console.error('Fehler beim Kopieren:', err);
-                // Fallback für ältere Browser
-                const textArea = document.createElement('textarea');
-                textArea.value = text;
-                textArea.style.position = 'fixed';
-                textArea.style.opacity = '0';
-                document.body.appendChild(textArea);
-                textArea.select();
-                try {
-                    document.execCommand('copy');
-                    if (card) {
-                        const originalBg = card.style.background;
-                        card.style.background = '#10b981';
-                        setTimeout(() => {
-                            card.style.background = originalBg || '';
-                        }, 500);
-                    }
-                } catch (e) {
-                    alert('Fehler beim Kopieren. Bitte manuell kopieren: ' + text);
-                }
-                document.body.removeChild(textArea);
-            });
-        }
 
         // Links rendern
         function renderLinks(piIP = null) {
