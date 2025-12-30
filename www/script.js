@@ -90,6 +90,28 @@ const services = [
                 isUDP: true
             }
         ]
+    },
+    {
+        name: 'Nginx Proxy Manager',
+        icon: '🔗',
+        urls: [
+            {
+                label: 'HTTP Port',
+                url: 'http://192.168.2.139:80/',
+                protocol: 'http'
+            },
+            {
+                label: 'HTTPS Port',
+                url: 'https://192.168.2.139:443/',
+                protocol: 'https'
+            },
+            {
+                label: 'HTTP Admin',
+                url: 'http://192.168.2.139:81/',
+                protocol: 'http',
+                isUDP: true
+            }
+        ]
     }
 ];
 
