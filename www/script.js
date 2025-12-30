@@ -75,12 +75,12 @@ const services = [
         urls: [
             {
                 label: 'HTTP Port',
-                url: 'http://192.168.2.139:8080/admin',
+                url: 'http://192.168.2.139:83/admin',
                 protocol: 'http'
             },
             {
                 label: 'HTTPS Port',
-                url: 'https://192.168.2.139:443/admin',
+                url: 'https://192.168.2.139:446/admin',
                 protocol: 'https'
             },
             {
